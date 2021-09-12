@@ -89,19 +89,24 @@ class MainActivity : AppCompatActivity() {
         }
 
         btn1.setOnClickListener {
-            val ipadr = "tcp://" + PhoneAdrUtil.getIpAdr(this) + ":8517"
-            tvshow.append(ipadr + "\r\n")
-            var isopen = VNanoNNPairUtils.getInstance().IsRecvListen()
-            if (!isopen) {
-                VNanoNNPairUtils.getInstance().Bind(ipadr).StartRecvListen()
-            } else {
-                VNanoNNPairUtils.getInstance().closeRecvListen()
+            try {
+                val ipadr = "tcp://" + PhoneAdrUtil.getIpAdr(this) + ":8517"
+                tvshow.append(ipadr + "\r\n")
+                var isopen = VNanoNNPairUtils.getInstance().IsRecvListen()
+                if (!isopen) {
+                    VNanoNNPairUtils.getInstance().Bind(ipadr).StartRecvListen()
+                } else {
+                    VNanoNNPairUtils.getInstance().StopRecvListen()
+                    VNanoNNPairUtils.getInstance().UnBind()
+                }
+                isopen = VNanoNNPairUtils.getInstance().IsRecvListen()
+                var str = if (!isopen) {
+                    "监听服务未开启"
+                } else "开启监听服务"
+                tvshow.append(str + "\r\n")
+            } catch (e: Exception) {
+                tvshow.append(e.message+"\r\n")
             }
-            isopen = VNanoNNPairUtils.getInstance().IsRecvListen()
-            var str = if (!isopen) {
-                "监听服务未开启"
-            } else "开启监听服务"
-            tvshow.append(str + "\r\n")
         }
 
         btn2.setOnClickListener { copydatabase() }

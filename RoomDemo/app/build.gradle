@@ -30,7 +30,7 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
     //VNanoMsg通讯库
-    implementation 'com.github.Vaccae:VNanoMsg:1.0.3'
+    implementation 'com.github.Vaccae:VNanoMsg:1.0.4'
     //LiveEventBus
     api 'io.github.jeremyliao:live-event-bus-x:1.8.0'
 

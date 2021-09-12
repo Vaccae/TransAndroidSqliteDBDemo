@@ -45,6 +45,12 @@ object VNanoNNPairUtils {
         return VNanoNNPairUtils
     }
 
+    fun UnBind() {
+        mNNPAIR?.let {
+            it.shutdownbind()
+        }
+    }
+
     private fun byteMerger(bt1: ByteArray, bt2: ByteArray): ByteArray {
         val bt3 = ByteArray(bt1.size + bt2.size)
         System.arraycopy(bt1, 0, bt3, 0, bt1.size)
@@ -98,8 +104,9 @@ object VNanoNNPairUtils {
     }
 
 
-    fun closeRecvListen() {
+    fun StopRecvListen() {
         isOpenListen = false;
     }
+
 
 }
