@@ -1,0 +1,2 @@
+# TransAndroidSqliteDBDemo
+程序里有Android端和C#端，用于将Andriod本地的Sqlite数据库传输到PC，通过PC端查询数据用使用
