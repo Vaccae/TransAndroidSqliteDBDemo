@@ -2,20 +2,24 @@ package com.vaccae.roomdemo
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.database.Cursor
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Button
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import androidx.core.database.getStringOrNull
 import androidx.lifecycle.Observer
 import com.jeremyliao.liveeventbus.LiveEventBus
 import com.vaccae.roomdemo.bean.*
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.*
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.lang.Exception
+import java.lang.StringBuilder
 import java.util.*
 import kotlin.collections.ArrayList
 import java.util.Observer as Observer1
@@ -105,7 +109,7 @@ class MainActivity : AppCompatActivity() {
                 } else "开启监听服务"
                 tvshow.append(str + "\r\n")
             } catch (e: Exception) {
-                tvshow.append(e.message+"\r\n")
+                tvshow.append(e.message + "\r\n")
             }
         }
 
@@ -115,17 +119,101 @@ class MainActivity : AppCompatActivity() {
     private fun InitListen() {
         LiveEventBus.get<String>("NNPair")
             .observe(this, Observer {
-                tvshow.append(it + "\r\n")
-                when (it) {
-                    "getdbnames" -> getDataBase()
-                    else -> {
-                        if (it.startsWith("#")) {
-                            var dbname = it.replaceFirst("#", "")
-                            TransDataBase(dbname)
+
+                try {
+                    tvshow.append(it + "\r\n")
+                    val transparm = it.split("#")
+                    when (transparm[0]) {
+                        CTransStatus.GetDBName -> getDataBase()
+                        CTransStatus.TransDB -> {
+                            TransDataBase(transparm[1])
+                        }
+                        CTransStatus.ExecSql -> {
+                            ExecSql(transparm[1])
+                        }
+                        else -> {
+                            tvshow.append("找不到对应的通讯类型\r\n")
                         }
                     }
+                } catch (e: Exception) {
+                    tvshow.append(e.message + "\r\n")
                 }
             })
+    }
+
+    private fun ExecSql(sql: String) {
+        val exectype = if (sql.trimStart().startsWith("select")) {
+            1
+        } else {
+            2
+        }
+        //加载AppDataBase
+        val db = DbUtil().getDatabase(this);
+        val execsqlScope = CoroutineScope(Job())
+        execsqlScope.launch(Dispatchers.IO) {
+            try {
+                when (exectype) {
+                    1 -> {
+                        val cursor = db.openHelper.writableDatabase.query(sql)
+                        cursor?.let {
+                            val sb = StringBuilder()
+                            //生成对应列名
+                            val columnqty = it.columnCount
+                            for (i in 0 until columnqty) {
+                                sb.append("[${it.columnNames[i]}]").append(",")
+                            }
+
+                            sb.deleteCharAt(sb.lastIndexOf(","))
+                            sb.append("\r\n")
+
+                            //生成对应数据
+                            it.moveToFirst()
+                            while (it.moveToNext()) {
+                                for (i in 0 until columnqty) {
+                                    when (it.getType(i)) {
+                                        Cursor.FIELD_TYPE_STRING -> {
+                                            sb.append(it.getString(i))
+                                        }
+                                        Cursor.FIELD_TYPE_INTEGER -> {
+                                            sb.append(it.getInt(i))
+                                        }
+                                        Cursor.FIELD_TYPE_FLOAT -> {
+                                            sb.append(it.getFloat(i))
+                                        }
+                                        Cursor.FIELD_TYPE_BLOB -> {
+                                            sb.append(it.getBlob(i))
+                                        }
+                                        else -> {
+                                            sb.append(it.getString(i))
+                                        }
+                                    }
+                                    sb.append(",")
+                                }
+                                sb.deleteCharAt(sb.lastIndexOf(","))
+                                sb.append("\r\n")
+                            }
+
+                            //传输数据
+                            VNanoNNPairUtils.getInstance().Send(sb.toString().toByteArray())
+                            withContext(Dispatchers.Main) {
+                                tvshow.append("查询数据完成发送\r\n")
+                            }
+                        }
+                    }
+                    else -> {
+                        db.runInTransaction {
+                            db.openHelper.writableDatabase.execSQL(sql)
+                        }
+                        //传输数据
+                        VNanoNNPairUtils.getInstance().Send("更新完成".toByteArray())
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    tvshow.append(e.message + "\r\n")
+                }
+            }
+        }
     }
 
     private fun TransDataBase(dbname: String) {
