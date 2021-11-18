@@ -168,7 +168,7 @@ class MainActivity : AppCompatActivity() {
 
                             //生成对应数据
                             it.moveToFirst()
-                            while (it.moveToNext()) {
+                            do {
                                 for (i in 0 until columnqty) {
                                     when (it.getType(i)) {
                                         Cursor.FIELD_TYPE_STRING -> {
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
                                 }
                                 sb.deleteCharAt(sb.lastIndexOf(","))
                                 sb.append("\r\n")
-                            }
+                            } while (it.moveToNext())
 
                             //传输数据
                             VNanoNNPairUtils.getInstance().Send(sb.toString().toByteArray())
