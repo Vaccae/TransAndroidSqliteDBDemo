@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * 创建时间：2020-04-14 14:29
  * 功能模块说明：
  */
-@Database(entities = [Product::class,ProductItem::class], version = 2)
+@Database(entities = [Product::class,ProductItem::class], version = 2, exportSchema = false)
 abstract class AppDataBase : RoomDatabase() {
     abstract fun ProductDao(): ProductDao
 

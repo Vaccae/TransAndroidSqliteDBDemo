@@ -14,5 +14,9 @@ namespace NanoRecvDataBase
         public static string TransDB = "2";
         //执行Sql脚本
         public static string ExecSql = "3";
+        //获取日志文件
+        public static string GetErrorLogName = "4";
+        //通讯日志
+        public static string TransLogFile = "5";
     }
 }

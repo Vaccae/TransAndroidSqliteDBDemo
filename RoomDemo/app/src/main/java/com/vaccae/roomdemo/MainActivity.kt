@@ -1,12 +1,19 @@
 package com.vaccae.roomdemo
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
+import android.net.Uri
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import android.widget.Button
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.core.content.ContextCompat
 import androidx.core.database.getStringOrNull
 import androidx.lifecycle.Observer
@@ -14,6 +21,8 @@ import com.jeremyliao.liveeventbus.LiveEventBus
 import com.vaccae.roomdemo.bean.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.flowOn
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -30,6 +39,9 @@ class MainActivity : AppCompatActivity() {
     val btn1: Button by lazy { findViewById<Button>(R.id.btn1) }
     val btn2: Button by lazy { findViewById<Button>(R.id.btn2) }
 
+    val btncreate: Button by lazy { findViewById(R.id.btncreate) }
+    val btnbackup: Button by lazy { findViewById<Button>(R.id.btnbackup) }
+    val btnrestore: Button by lazy { findViewById<Button>(R.id.btnrestore) }
 
     companion object {
         private const val REQUEST_CODE_PERMISSIONS = 10
@@ -42,24 +54,48 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    private fun allPermissionsGranted() = REQUIRED_PERMISSIONS.all {
-        ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
-    }
+    //StartActivity弃用后，使用registerForActivityResult来实现
+    private val requestDataLauncher =
+        registerForActivityResult(object : ActivityResultContract<Int, String>() {
+            override fun createIntent(context: Context, input: Int?): Intent {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                intent.data = Uri.parse("package:$packageName")
+                return intent
+            }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
+            override fun parseResult(resultCode: Int, intent: Intent?): String {
+                TODO("Not yet implemented")
+            }
+        }
+        ) {
+            Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
+        }
 
+
+    private fun allPermissionsGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // 先判断有没有权限
+            if (Environment.isExternalStorageManager()) {
+                REQUIRED_PERMISSIONS.all {
+                    ContextCompat.checkSelfPermission(
+                        baseContext,
+                        it
+                    ) == PackageManager.PERMISSION_GRANTED
+                }
             } else {
-                Toast.makeText(this, "未开启权限.", Toast.LENGTH_SHORT).show()
-                finish()
+                requestDataLauncher.launch(REQUEST_CODE_PERMISSIONS)
+            }
+        } else {
+            REQUIRED_PERMISSIONS.all {
+                ContextCompat.checkSelfPermission(
+                    baseContext,
+                    it
+                ) == PackageManager.PERMISSION_GRANTED
             }
         }
     }
+
+
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,14 +103,6 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         allPermissionsGranted()
-
-        if (CheckProduct() == 0) {
-            //生成显示产品数据
-            CreateProduct()
-
-            //生成明细数据
-            CreateProductItem()
-        }
 
         InitListen()
 
@@ -114,6 +142,36 @@ class MainActivity : AppCompatActivity() {
         }
 
         btn2.setOnClickListener { copydatabase() }
+
+        btncreate.setOnClickListener {
+            if (CheckProduct() == 0) {
+                //生成显示产品数据
+                CreateProduct()
+
+                //生成明细数据
+                CreateProductItem()
+            }
+        }
+
+        btnbackup.setOnClickListener {
+            GlobalScope.launch(Dispatchers.Main) {
+                DbBackupUtil().backup(applicationContext)
+                    .flowOn(Dispatchers.IO)
+                    .collect(collector = FlowCollector { t ->
+                        tvshow.text = t
+                    })
+            }
+        }
+
+        btnrestore.setOnClickListener {
+            GlobalScope.launch(Dispatchers.Main) {
+                DbBackupUtil().restore(applicationContext)
+                    .flowOn(Dispatchers.IO)
+                    .collect(collector = FlowCollector { t ->
+                        tvshow.text = t
+                    })
+            }
+        }
     }
 
     private fun InitListen() {
